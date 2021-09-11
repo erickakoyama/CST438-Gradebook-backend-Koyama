@@ -2,12 +2,17 @@ package com.cst438.controllers;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -25,7 +30,9 @@ import com.cst438.domain.CourseDTOG;
 import com.cst438.domain.CourseRepository;
 import com.cst438.domain.Enrollment;
 import com.cst438.domain.GradebookDTO;
+import com.cst438.domain.NewAssignmentFields;
 import com.cst438.services.RegistrationService;
+
 
 @RestController
 @CrossOrigin(origins = "http://localhost:3000")
@@ -45,7 +52,7 @@ public class GradeBookController {
 	
 	// get assignments for an instructor that need grading
 	@GetMapping("/gradebook")
-	public AssignmentListDTO getAssignmentsNeedGrading( ) {
+	public AssignmentListDTO getAssignmentsNeedGrading() {
 		
 		String email = "dwisneski@csumb.edu";  // user name (should be instructor's email) 
 		
@@ -58,7 +65,7 @@ public class GradeBookController {
 	}
 	
 	@GetMapping("/gradebook/{id}")
-	public GradebookDTO getGradebook(@PathVariable("id") Integer assignmentId  ) {
+	public GradebookDTO getGradebook(@PathVariable("id") int assignmentId  ) {
 		
 		String email = "dwisneski@csumb.edu";  // user name (should be instructor's email) 
 		Assignment assignment = checkAssignment(assignmentId, email);
@@ -134,7 +141,7 @@ public class GradeBookController {
 	
 	@PutMapping("/gradebook/{id}")
 	@Transactional
-	public void updateGradebook (@RequestBody GradebookDTO gradebook, @PathVariable("id") Integer assignmentId ) {
+	public void updateGradebook (@RequestBody GradebookDTO gradebook, @PathVariable("id") int assignmentId ) {
 		
 		String email = "dwisneski@csumb.edu";  // user name (should be instructor's email) 
 		checkAssignment(assignmentId, email);  // check that user name matches instructor email of the course.
@@ -152,18 +159,181 @@ public class GradeBookController {
 		
 	}
 	
+	// @author Ericka Koyama
+	@GetMapping("/assignment/{id}")
+	@Transactional
+	public AssignmentListDTO.AssignmentDTO getAssignment (@PathVariable("id") int assignmentId) {
+		
+		// Create assignment entity
+		Optional<Assignment> optA = assignmentRepository.findById(assignmentId);
+		if (optA.isEmpty()) {
+			throw new ResponseStatusException( HttpStatus.BAD_REQUEST, "Invalid assignment primary key. " + assignmentId);
+		}
+		Assignment a = optA.get();
+		
+		AssignmentListDTO.AssignmentDTO assignmentDTORes = new AssignmentListDTO.AssignmentDTO();
+		assignmentDTORes.assignmentId = a.getId();
+		assignmentDTORes.assignmentName = a.getName();
+		assignmentDTORes.dueDate = a.getDueDate().toString();
+		assignmentDTORes.courseTitle = a.getCourse().getTitle();
+		assignmentDTORes.courseId = a.getCourse().getCourse_id();
+		
+		return assignmentDTORes;
+	}
+
+	// @author Ericka Koyama
+	@PostMapping("/assignment")
+	@Transactional
+	public AssignmentListDTO.AssignmentDTO createAssignment (@RequestBody NewAssignmentFields fields) {
+		// check that this request is from the course instructor 
+		String email = "dwisneski@csumb.edu";  // user name (should be instructor's email)
+		AssignmentListDTO.AssignmentDTO assignmentDTO = fields.assignment;
+		int courseId = fields.courseId;
+		checkNewAssignmentFields(assignmentDTO);  // check that assignment has all of the required fields
+		// check that instructor matches course
+		checkInstructorCoursePerms(courseId, email);
+		
+		// Create assignment entity
+		Assignment a = new Assignment();
+		
+		// Handle date field
+		java.util.Date utilDate;
+		try {
+			utilDate = new SimpleDateFormat("yyyy-MM-dd").parse(assignmentDTO.dueDate);
+		} catch (ParseException e) {
+			e.printStackTrace();
+			throw new ResponseStatusException( HttpStatus.BAD_REQUEST, "Assignment due date not formatted correctly");
+		}
+		
+		java.sql.Date sqlDate = new java.sql.Date(utilDate.getTime());
+		
+		
+		// Handle course field
+		Course course = courseRepository.findByCourse_id(courseId);
+		if (course == null) {
+			throw new ResponseStatusException( HttpStatus.BAD_REQUEST, "Invalid course primary key. " + courseId);
+		}
+		a.setCourse(course);
+		
+		// Handle other fields
+		a.setDueDate(sqlDate);
+		a.setName(assignmentDTO.assignmentName);
+		
+		assignmentRepository.save(a);
+		
+		AssignmentListDTO.AssignmentDTO assignmentDTORes = new AssignmentListDTO.AssignmentDTO();
+		assignmentDTORes.assignmentId = a.getId();
+		assignmentDTORes.assignmentName = a.getName();
+		assignmentDTORes.dueDate = a.getDueDate().toString();
+		assignmentDTORes.courseTitle = a.getCourse().getTitle();
+		assignmentDTORes.courseId = a.getCourse().getCourse_id();
+		
+		return assignmentDTORes;
+	}
+	
+	// @author Ericka Koyama
+	@PatchMapping("/assignment/{id}")
+	@Transactional
+	public AssignmentListDTO.AssignmentDTO updateAssignment (
+			@RequestBody AssignmentListDTO.AssignmentDTO assignmentDTO,
+			@PathVariable("id") int assignmentId
+	) {
+		String email = "dwisneski@csumb.edu";  // user name (should be instructor's email)
+		// Create assignment entity
+		Optional<Assignment> optA = assignmentRepository.findById(assignmentId);
+		if (optA.isEmpty()) {
+			throw new ResponseStatusException( HttpStatus.BAD_REQUEST, "Invalid assignment primary key. " + assignmentId);
+		}
+		Assignment a = optA.get();
+		
+		// check that instructor matches course
+		checkInstructorCoursePerms(a.getCourse().getCourse_id(), email);
+		
+		if (assignmentDTO.assignmentName != null && !assignmentDTO.assignmentName.trim().isEmpty()) {
+			a.setName(assignmentDTO.assignmentName);
+		}
+		
+		assignmentRepository.save(a);
+		
+		AssignmentListDTO.AssignmentDTO assignmentDTORes = new AssignmentListDTO.AssignmentDTO();
+		assignmentDTORes.assignmentId = a.getId();
+		assignmentDTORes.assignmentName = a.getName();
+		assignmentDTORes.dueDate = a.getDueDate().toString();
+		assignmentDTORes.courseTitle = a.getCourse().getTitle();
+		assignmentDTORes.courseId = a.getCourse().getCourse_id();
+		
+		return assignmentDTORes;
+	}
+	
+	// @author Ericka Koyama
+	@DeleteMapping("/assignment/{id}")
+	@Transactional
+	public void deleteAssignment (@PathVariable("id") int assignmentId) {
+		String email = "dwisneski@csumb.edu";  // user name (should be instructor's email)
+		// Create assignment entity
+		Optional<Assignment> optA = assignmentRepository.findById(assignmentId);
+		if (optA.isEmpty()) {
+			throw new ResponseStatusException( HttpStatus.BAD_REQUEST, "Invalid assignment primary key. "+assignmentId);
+		}
+		Assignment a = optA.get();
+		
+		// check that instructor matches course
+		checkInstructorCoursePerms(a.getCourse().getCourse_id(), email);
+		
+		// can only delete if there are no grades for the assignment
+		List<AssignmentGrade> ags = assignmentGradeRepository.findAllByAssignmentId(assignmentId);
+		
+		System.out.println("ags length" + ags.size());
+		
+		if (!ags.isEmpty()) {
+			throw new ResponseStatusException( HttpStatus.BAD_REQUEST, "Cannot delete an assignment with grades. "+assignmentId);
+		}
+		
+		assignmentRepository.delete(a);
+	}
+	
 	private Assignment checkAssignment(int assignmentId, String email) {
 		// get assignment 
-		Assignment assignment = assignmentRepository.findById(assignmentId);
-		if (assignment == null) {
+		Optional<Assignment> optA = assignmentRepository.findById(assignmentId);
+		if (optA.isEmpty()) {
 			throw new ResponseStatusException( HttpStatus.BAD_REQUEST, "Assignment not found. "+assignmentId );
 		}
+		Assignment assignment = optA.get();
+		
 		// check that user is the course instructor
 		if (!assignment.getCourse().getInstructor().equals(email)) {
 			throw new ResponseStatusException( HttpStatus.UNAUTHORIZED, "Not Authorized. " );
 		}
 		
 		return assignment;
+	}
+	
+	private Course checkInstructorCoursePerms(int courseId, String email) {
+		// get course
+		Course course = courseRepository.findByCourse_id(courseId);
+		if (course == null) {
+			throw new ResponseStatusException( HttpStatus.BAD_REQUEST, "Course not found. "+courseId );
+		}
+		// check that user is the course instructor
+		if (!course.getInstructor().equals(email)) {
+			throw new ResponseStatusException( HttpStatus.UNAUTHORIZED, "Not Authorized. " );
+		}
+		
+		return course;
+	}
+	
+	private void checkNewAssignmentFields(AssignmentListDTO.AssignmentDTO assignment) {
+		if (assignment == null) {
+			throw new ResponseStatusException( HttpStatus.BAD_REQUEST, "No assignment data passed.");
+		}
+		// check that the assignment has a due date
+		if (assignment.dueDate == null && !assignment.dueDate.trim().isEmpty()) {
+			throw new ResponseStatusException( HttpStatus.BAD_REQUEST, "Missing assignment due date field");
+		}
+		// check that the assignment has a name
+		if (assignment.assignmentName == null && !assignment.assignmentName.trim().isEmpty()) {
+			throw new ResponseStatusException( HttpStatus.BAD_REQUEST, "Missing assignment name field.");
+		}
 	}
 
 }

@@ -1,5 +1,8 @@
 package com.cst438;
 
+import java.util.List;
+import java.util.Optional;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 
@@ -21,11 +24,13 @@ import com.cst438.controllers.GradeBookController;
 import com.cst438.domain.Assignment;
 import com.cst438.domain.AssignmentGrade;
 import com.cst438.domain.AssignmentGradeRepository;
+import com.cst438.domain.AssignmentListDTO;
 import com.cst438.domain.AssignmentRepository;
 import com.cst438.domain.Course;
 import com.cst438.domain.CourseRepository;
 import com.cst438.domain.Enrollment;
 import com.cst438.domain.GradebookDTO;
+import com.cst438.domain.NewAssignmentFields;
 import com.cst438.services.RegistrationService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -56,6 +61,7 @@ public class JunitTestGradebook {
 	public static final String TEST_INSTRUCTOR_EMAIL = "dwisneski@csumb.edu";
 	public static final int TEST_YEAR = 2021;
 	public static final String TEST_SEMESTER = "Fall";
+	public static final String TEST_ASSIGNMENT_NAME = "Assignment 1";
 
 	@MockBean
 	AssignmentRepository assignmentRepository;
@@ -102,6 +108,7 @@ public class JunitTestGradebook {
 		assignment.setId(1);
 		assignment.setName("Assignment 1");
 		assignment.setNeedsGrading(1);
+		Optional<Assignment> optA = Optional.of(assignment);
 
 		AssignmentGrade ag = new AssignmentGrade();
 		ag.setAssignment(assignment);
@@ -110,7 +117,7 @@ public class JunitTestGradebook {
 		ag.setStudentEnrollment(enrollment);
 
 		// given -- stubs for database repositories that return test data
-		given(assignmentRepository.findById(1)).willReturn(assignment);
+		given(assignmentRepository.findById(1)).willReturn(optA);
 		given(assignmentGradeRepository.findByAssignmentIdAndStudentEmail(1, TEST_STUDENT_EMAIL)).willReturn(null);
 		given(assignmentGradeRepository.save(any())).willReturn(ag);
 
@@ -185,7 +192,7 @@ public class JunitTestGradebook {
 		// set dueDate to 1 week before now.
 		assignment.setDueDate(new java.sql.Date(System.currentTimeMillis() - 7 * 24 * 60 * 60 * 1000));
 		assignment.setId(1);
-		assignment.setName("Assignment 1");
+		assignment.setName(TEST_ASSIGNMENT_NAME);
 		assignment.setNeedsGrading(1);
 
 		AssignmentGrade ag = new AssignmentGrade();
@@ -195,7 +202,7 @@ public class JunitTestGradebook {
 		ag.setStudentEnrollment(enrollment);
 
 		// given -- stubs for database repositories that return test data
-		given(assignmentRepository.findById(1)).willReturn(assignment);
+		given(assignmentRepository.findById(1)).willReturn(Optional.of(assignment));
 		given(assignmentGradeRepository.findByAssignmentIdAndStudentEmail(1, TEST_STUDENT_EMAIL)).willReturn(ag);
 		given(assignmentGradeRepository.findById(1)).willReturn(ag);
 
@@ -239,6 +246,222 @@ public class JunitTestGradebook {
 		updatedag.setId(1);
 		updatedag.setScore("88");
 		verify(assignmentGradeRepository, times(1)).save(updatedag);
+	}
+	
+	@Test
+	public void createAssignment() throws Exception {
+		MockHttpServletResponse response;
+		
+		String newAssignmentName = "New Assignment Name";
+		
+		Course course = new Course();
+		course.setCourse_id(TEST_COURSE_ID);
+		course.setSemester(TEST_SEMESTER);
+		course.setYear(TEST_YEAR);
+		course.setInstructor(TEST_INSTRUCTOR_EMAIL);
+		course.setEnrollments(new java.util.ArrayList<Enrollment>());
+		course.setAssignments(new java.util.ArrayList<Assignment>());
+		
+		given(courseRepository.findByCourse_id(TEST_COURSE_ID)).willReturn(course);
+		
+		// End MOCK DATA
+		
+		// SETUP NEW ASSIGNMENT SUBMISSION
+		AssignmentListDTO.AssignmentDTO newA = new AssignmentListDTO.AssignmentDTO();
+		newA.dueDate = "2021-11-01";
+		newA.assignmentName = newAssignmentName;
+		NewAssignmentFields newAFields = new NewAssignmentFields();
+		newAFields.assignment = newA;
+		newAFields.courseId = TEST_COURSE_ID;
+		
+		// send updates to server
+		response = mvc
+				.perform(MockMvcRequestBuilders.post("/assignment").accept(MediaType.APPLICATION_JSON)
+						.content(asJsonString(newAFields)).contentType(MediaType.APPLICATION_JSON))
+				.andReturn().getResponse();
+		
+
+		// verify that return status = OK (value 200)
+		assertEquals(200, response.getStatus());
+		
+		// verify that returned data has non zero primary key
+		AssignmentListDTO.AssignmentDTO result = fromJsonString(
+				response.getContentAsString(),
+				AssignmentListDTO.AssignmentDTO.class
+		);
+		
+		assertEquals(newAssignmentName, result.assignmentName);
+	}
+	
+	@Test
+	public void deleteAssignment() throws Exception {
+		MockHttpServletResponse response;
+		
+		Course course = new Course();
+		course.setCourse_id(TEST_COURSE_ID);
+		course.setSemester(TEST_SEMESTER);
+		course.setYear(TEST_YEAR);
+		course.setInstructor(TEST_INSTRUCTOR_EMAIL);
+		course.setEnrollments(new java.util.ArrayList<Enrollment>());
+		course.setAssignments(new java.util.ArrayList<Assignment>());
+		
+		Assignment assignment = new Assignment();
+		assignment.setCourse(course);
+		course.getAssignments().add(assignment);
+		// set dueDate to 1 week before now.
+		assignment.setDueDate(new java.sql.Date(System.currentTimeMillis() - 7 * 24 * 60 * 60 * 1000));
+		assignment.setId(1);
+		assignment.setName(TEST_ASSIGNMENT_NAME);
+		assignment.setNeedsGrading(1);
+		
+		given(assignmentRepository.findById(1)).willReturn(Optional.of(assignment));
+		given(courseRepository.findByCourse_id(TEST_COURSE_ID)).willReturn(course);
+		
+		// End MOCK DATA
+		
+		// Get Assignment
+		response = mvc
+				.perform(MockMvcRequestBuilders.get("/assignment/1").accept(MediaType.APPLICATION_JSON)
+						.contentType(MediaType.APPLICATION_JSON)).andReturn().getResponse();
+		
+
+		// verify that return status = OK (value 200)
+		assertEquals(200, response.getStatus());
+		
+		// Delete Assignment
+		response = mvc
+				.perform(MockMvcRequestBuilders.delete("/assignment/1").accept(MediaType.APPLICATION_JSON)
+						.contentType(MediaType.APPLICATION_JSON)).andReturn().getResponse();
+		
+
+		// verify that return status = OK (value 200)
+		assertEquals(200, response.getStatus());
+	}
+	
+	@Test
+	public void deleteAssignmentWithGrades() throws Exception {
+		MockHttpServletResponse response;
+		
+		Course course = new Course();
+		course.setCourse_id(TEST_COURSE_ID);
+		course.setSemester(TEST_SEMESTER);
+		course.setYear(TEST_YEAR);
+		course.setInstructor(TEST_INSTRUCTOR_EMAIL);
+		course.setEnrollments(new java.util.ArrayList<Enrollment>());
+		course.setAssignments(new java.util.ArrayList<Assignment>());
+		
+		Assignment assignment = new Assignment();
+		assignment.setCourse(course);
+		course.getAssignments().add(assignment);
+		// set dueDate to 1 week before now.
+		assignment.setDueDate(new java.sql.Date(System.currentTimeMillis() - 7 * 24 * 60 * 60 * 1000));
+		assignment.setId(1);
+		assignment.setName(TEST_ASSIGNMENT_NAME);
+		assignment.setNeedsGrading(1);
+		
+		Enrollment enrollment = new Enrollment();
+		enrollment.setCourse(course);
+		course.getEnrollments().add(enrollment);
+		enrollment.setId(TEST_COURSE_ID);
+		enrollment.setStudentEmail(TEST_STUDENT_EMAIL);
+		enrollment.setStudentName(TEST_STUDENT_NAME);
+		
+		AssignmentGrade ag = new AssignmentGrade();
+		ag.setAssignment(assignment);
+		ag.setId(1);
+		ag.setScore("80");
+		ag.setStudentEnrollment(enrollment);
+		
+		given(assignmentGradeRepository.findByAssignmentIdAndStudentEmail(1, TEST_STUDENT_EMAIL)).willReturn(ag);
+		List<AssignmentGrade> ags = new java.util.ArrayList<AssignmentGrade>();
+		ags.add(ag);
+		given(assignmentGradeRepository.findAllByAssignmentId(1)).willReturn(ags);
+		given(assignmentRepository.findById(1)).willReturn(Optional.of(assignment));
+		given(courseRepository.findByCourse_id(TEST_COURSE_ID)).willReturn(course);
+		
+		// End MOCK DATA
+		
+		// Get Assignment
+		response = mvc
+				.perform(MockMvcRequestBuilders.get("/assignment/1").accept(MediaType.APPLICATION_JSON)
+						.contentType(MediaType.APPLICATION_JSON)).andReturn().getResponse();
+		
+
+		// verify that return status = OK (value 200)
+		assertEquals(200, response.getStatus());
+		
+		// Delete Assignment
+		response = mvc
+				.perform(MockMvcRequestBuilders.delete("/assignment/1").accept(MediaType.APPLICATION_JSON)
+						.contentType(MediaType.APPLICATION_JSON)).andReturn().getResponse();
+		
+
+		// verify that return status = ERROR (value 400)
+		// because there were grades for the assignment
+		assertEquals(400, response.getStatus());
+	}
+	
+	
+	@Test
+	public void updateAssignmentName() throws Exception {
+		
+		MockHttpServletResponse response;
+		
+		Course course = new Course();
+		course.setCourse_id(TEST_COURSE_ID);
+		course.setSemester(TEST_SEMESTER);
+		course.setYear(TEST_YEAR);
+		course.setInstructor(TEST_INSTRUCTOR_EMAIL);
+		course.setEnrollments(new java.util.ArrayList<Enrollment>());
+		course.setAssignments(new java.util.ArrayList<Assignment>());
+
+		Assignment assignment = new Assignment();
+		assignment.setCourse(course);
+		// set dueDate to 1 week before now.
+		assignment.setDueDate(new java.sql.Date(System.currentTimeMillis() - 7 * 24 * 60 * 60 * 1000));
+		assignment.setId(1);
+		assignment.setName(TEST_ASSIGNMENT_NAME);
+
+		// given -- stubs for database repositories that return test data
+		given(assignmentRepository.findById(1)).willReturn(Optional.of(assignment));
+		given(courseRepository.findByCourse_id(TEST_COURSE_ID)).willReturn(course);
+		// End MOCK DATA
+		
+		/**
+		 * VERIFY SETUP STATE
+		 */
+		response = mvc.perform(MockMvcRequestBuilders.get("/assignment/1").accept(MediaType.APPLICATION_JSON))
+				.andReturn().getResponse();
+
+		// verify return data with entry for one student without no score
+		assertEquals(200, response.getStatus());
+		// verify that returned data has non zero primary key
+		AssignmentListDTO.AssignmentDTO result = fromJsonString(
+				response.getContentAsString(),
+				AssignmentListDTO.AssignmentDTO.class
+		);
+		// assignment id is 1
+		assertEquals(1, result.assignmentId);
+		// there is one student list
+		assertEquals(TEST_ASSIGNMENT_NAME, result.assignmentName);
+		
+		/**
+		 * TEST UPDATE
+		 */
+		String updatedName = "Updated assignment name";
+		AssignmentListDTO.AssignmentDTO assignmentUpdates = new AssignmentListDTO.AssignmentDTO();
+		assignmentUpdates.assignmentName = updatedName;
+		assignmentUpdates.assignmentId = 1;
+
+		// send updates to server
+		response = mvc
+				.perform(MockMvcRequestBuilders.patch("/assignment/1").accept(MediaType.APPLICATION_JSON)
+						.content(asJsonString(assignmentUpdates)).contentType(MediaType.APPLICATION_JSON))
+				.andReturn().getResponse();
+		
+
+		// verify that return status = OK (value 200)
+		assertEquals(200, response.getStatus());
 	}
 
 	private static String asJsonString(final Object obj) {
