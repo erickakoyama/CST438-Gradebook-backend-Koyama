@@ -283,8 +283,6 @@ public class GradeBookController {
 		// can only delete if there are no grades for the assignment
 		List<AssignmentGrade> ags = assignmentGradeRepository.findAllByAssignmentId(assignmentId);
 		
-		System.out.println("ags length" + ags.size());
-		
 		if (!ags.isEmpty()) {
 			throw new ResponseStatusException( HttpStatus.BAD_REQUEST, "Cannot delete an assignment with grades. "+assignmentId);
 		}
