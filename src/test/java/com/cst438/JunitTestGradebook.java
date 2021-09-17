@@ -30,7 +30,6 @@ import com.cst438.domain.Course;
 import com.cst438.domain.CourseRepository;
 import com.cst438.domain.Enrollment;
 import com.cst438.domain.GradebookDTO;
-import com.cst438.domain.NewAssignmentFields;
 import com.cst438.services.RegistrationService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -270,14 +269,12 @@ public class JunitTestGradebook {
 		AssignmentListDTO.AssignmentDTO newA = new AssignmentListDTO.AssignmentDTO();
 		newA.dueDate = "2021-11-01";
 		newA.assignmentName = newAssignmentName;
-		NewAssignmentFields newAFields = new NewAssignmentFields();
-		newAFields.assignment = newA;
-		newAFields.courseId = TEST_COURSE_ID;
+		newA.courseId = TEST_COURSE_ID;
 		
 		// send updates to server
 		response = mvc
 				.perform(MockMvcRequestBuilders.post("/assignment").accept(MediaType.APPLICATION_JSON)
-						.content(asJsonString(newAFields)).contentType(MediaType.APPLICATION_JSON))
+						.content(asJsonString(newA)).contentType(MediaType.APPLICATION_JSON))
 				.andReturn().getResponse();
 		
 
