@@ -30,7 +30,6 @@ import com.cst438.domain.CourseDTOG;
 import com.cst438.domain.CourseRepository;
 import com.cst438.domain.Enrollment;
 import com.cst438.domain.GradebookDTO;
-import com.cst438.domain.NewAssignmentFields;
 import com.cst438.services.RegistrationService;
 
 
@@ -184,14 +183,12 @@ public class GradeBookController {
 	// @author Ericka Koyama
 	@PostMapping("/assignment")
 	@Transactional
-	public AssignmentListDTO.AssignmentDTO createAssignment (@RequestBody NewAssignmentFields fields) {
+	public AssignmentListDTO.AssignmentDTO createAssignment (@RequestBody AssignmentListDTO.AssignmentDTO assignmentDTO) {
 		// check that this request is from the course instructor 
 		String email = "dwisneski@csumb.edu";  // user name (should be instructor's email)
-		AssignmentListDTO.AssignmentDTO assignmentDTO = fields.assignment;
-		int courseId = fields.courseId;
 		checkNewAssignmentFields(assignmentDTO);  // check that assignment has all of the required fields
 		// check that instructor matches course
-		checkInstructorCoursePerms(courseId, email);
+		checkInstructorCoursePerms(assignmentDTO.courseId, email);
 		
 		// Create assignment entity
 		Assignment a = new Assignment();
@@ -209,9 +206,9 @@ public class GradeBookController {
 		
 		
 		// Handle course field
-		Course course = courseRepository.findByCourse_id(courseId);
+		Course course = courseRepository.findByCourse_id(assignmentDTO.courseId);
 		if (course == null) {
-			throw new ResponseStatusException( HttpStatus.BAD_REQUEST, "Invalid course primary key. " + courseId);
+			throw new ResponseStatusException( HttpStatus.BAD_REQUEST, "Invalid course primary key. " + assignmentDTO.courseId);
 		}
 		a.setCourse(course);
 		
