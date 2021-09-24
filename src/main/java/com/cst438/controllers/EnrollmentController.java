@@ -32,6 +32,10 @@ public class EnrollmentController {
 	public EnrollmentDTO addEnrollment(@RequestBody EnrollmentDTO enrollmentDTO) {
 		
 		//TODO  complete this method in homework 4
+		/**
+		 * this class receives a request to create an enrollment record for a
+		 * student in a course using an EnrollmentDTO object as the request body.
+		 */
 		
 		return null;
 		
