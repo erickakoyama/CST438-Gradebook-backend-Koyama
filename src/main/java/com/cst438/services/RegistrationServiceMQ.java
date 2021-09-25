@@ -1,6 +1,5 @@
 package com.cst438.services;
 
-
 import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -43,17 +42,28 @@ public class RegistrationServiceMQ extends RegistrationService {
 	@RabbitListener(queues = "gradebook-queue")
 	@Transactional
 	public void receive(EnrollmentDTO enrollmentDTO) {
+		/**
+		 * this class receives a request to create an enrollment record for a
+		 * student in a course using an EnrollmentDTO object as the request body.
+		 */
+		Enrollment e = new Enrollment();
+		Course c = courseRepository.findByCourse_id(enrollmentDTO.course_id);
 		
-		//TODO  complete this method in homework 4
-		
+		if (c != null) {
+			e.setCourse(c);
+			e.setStudentEmail(enrollmentDTO.studentEmail);
+			e.setStudentName(enrollmentDTO.studentName);
+			
+			enrollmentRepository.save(e); // save to DB
+		} else {
+			// throw some error?
+		}
 	}
 
 	// sender of messages to Registration Service
 	@Override
 	public void sendFinalGrades(int course_id, CourseDTOG courseDTO) {
-		 
-		//TODO  complete this method in homework 4
-		
+		this.rabbitTemplate.convertAndSend(registrationQueue.getName(), courseDTO);
 	}
 
 }
