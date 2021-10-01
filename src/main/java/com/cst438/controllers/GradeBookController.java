@@ -60,6 +60,7 @@ public class GradeBookController {
 		for (Assignment a: assignments) {
 			result.assignments.add(new AssignmentListDTO.AssignmentDTO(a.getId(), a.getCourse().getCourse_id(), a.getName(), a.getDueDate().toString() , a.getCourse().getTitle()));
 		}
+		System.out.println("=====> Number of assignments: " + result.assignments.size());
 		return result;
 	}
 	
