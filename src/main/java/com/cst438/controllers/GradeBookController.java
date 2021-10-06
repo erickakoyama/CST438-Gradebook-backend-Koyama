@@ -34,7 +34,7 @@ import com.cst438.services.RegistrationService;
 
 
 @RestController
-@CrossOrigin(origins = "http://localhost:3000")
+@CrossOrigin(origins = "https://cst438grade-fe-koyama.herokuapp.com")
 public class GradeBookController {
 	
 	@Autowired
@@ -60,6 +60,7 @@ public class GradeBookController {
 		for (Assignment a: assignments) {
 			result.assignments.add(new AssignmentListDTO.AssignmentDTO(a.getId(), a.getCourse().getCourse_id(), a.getName(), a.getDueDate().toString() , a.getCourse().getTitle()));
 		}
+
 		return result;
 	}
 	
@@ -195,9 +196,11 @@ public class GradeBookController {
 		
 		// Handle date field
 		java.util.Date utilDate;
+		java.util.Date currentDate = new java.util.Date();
 		try {
 			utilDate = new SimpleDateFormat("yyyy-MM-dd").parse(assignmentDTO.dueDate);
 		} catch (ParseException e) {
+
 			e.printStackTrace();
 			throw new ResponseStatusException( HttpStatus.BAD_REQUEST, "Assignment due date not formatted correctly");
 		}
@@ -211,6 +214,10 @@ public class GradeBookController {
 			throw new ResponseStatusException( HttpStatus.BAD_REQUEST, "Invalid course primary key. " + assignmentDTO.courseId);
 		}
 		a.setCourse(course);
+		
+		if (utilDate.before(currentDate)) { // due date has passed, ready for grading
+			a.setNeedsGrading(1);
+		}
 		
 		// Handle other fields
 		a.setDueDate(sqlDate);
