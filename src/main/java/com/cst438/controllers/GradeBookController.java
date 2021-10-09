@@ -8,6 +8,8 @@ import java.text.SimpleDateFormat;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -65,7 +67,7 @@ public class GradeBookController {
 	}
 	
 	@GetMapping("/gradebook/{id}")
-	public GradebookDTO getGradebook(@PathVariable("id") int assignmentId  ) {
+	public GradebookDTO getGradebook(@PathVariable("id") int assignmentId) {
 		
 		String email = "dwisneski@csumb.edu";  // user name (should be instructor's email) 
 		Assignment assignment = checkAssignment(assignmentId, email);
@@ -141,9 +143,13 @@ public class GradeBookController {
 	
 	@PutMapping("/gradebook/{id}")
 	@Transactional
-	public void updateGradebook (@RequestBody GradebookDTO gradebook, @PathVariable("id") int assignmentId ) {
+	public void updateGradebook (
+			@RequestBody GradebookDTO gradebook,
+			@PathVariable("id") int assignmentId,
+			@AuthenticationPrincipal OAuth2User principal
+	) {
 		
-		String email = "dwisneski@csumb.edu";  // user name (should be instructor's email) 
+		String email = principal.getAttribute("email"); // user name (should be instructor's email) 
 		checkAssignment(assignmentId, email);  // check that user name matches instructor email of the course.
 		
 		// for each grade in gradebook, update the assignment grade in database 
@@ -184,9 +190,12 @@ public class GradeBookController {
 	// @author Ericka Koyama
 	@PostMapping("/assignment")
 	@Transactional
-	public AssignmentListDTO.AssignmentDTO createAssignment (@RequestBody AssignmentListDTO.AssignmentDTO assignmentDTO) {
-		// check that this request is from the course instructor 
-		String email = "dwisneski@csumb.edu";  // user name (should be instructor's email)
+	public AssignmentListDTO.AssignmentDTO createAssignment (
+			@RequestBody AssignmentListDTO.AssignmentDTO assignmentDTO,
+			@AuthenticationPrincipal OAuth2User principal
+	) {
+		// check that this request is from the course instructor
+		String email = principal.getAttribute("email"); // user name (should be instructor's email) 
 		checkNewAssignmentFields(assignmentDTO);  // check that assignment has all of the required fields
 		// check that instructor matches course
 		checkInstructorCoursePerms(assignmentDTO.courseId, email);
