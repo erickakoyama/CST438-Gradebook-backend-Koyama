@@ -71,9 +71,12 @@ public class GradeBookController {
 	}
 	
 	@GetMapping("/gradebook/{id}")
-	public GradebookDTO getGradebook(@PathVariable("id") int assignmentId) {
+	public GradebookDTO getGradebook(
+			@PathVariable("id") int assignmentId,
+			@AuthenticationPrincipal OAuth2User principal
+	) {
 		
-		String email = "dwisneski@csumb.edu";  // user name (should be instructor's email) 
+		String email = principal.getAttribute("email"); // user name (should be instructor's email)
 		Assignment assignment = checkAssignment(assignmentId, email);
 		
 		// get the enrollment for the course
@@ -271,9 +274,10 @@ public class GradeBookController {
 	@Transactional
 	public AssignmentListDTO.AssignmentDTO updateAssignment (
 			@RequestBody AssignmentListDTO.AssignmentDTO assignmentDTO,
-			@PathVariable("id") int assignmentId
+			@PathVariable("id") int assignmentId,
+			@AuthenticationPrincipal OAuth2User principal
 	) {
-		String email = "dwisneski@csumb.edu";  // user name (should be instructor's email)
+		String email = principal.getAttribute("email");  // user name (should be instructor's email)
 		// Create assignment entity
 		Optional<Assignment> optA = assignmentRepository.findById(assignmentId);
 		if (optA.isEmpty()) {
@@ -303,8 +307,8 @@ public class GradeBookController {
 	// @author Ericka Koyama
 	@DeleteMapping("/assignment/{id}")
 	@Transactional
-	public void deleteAssignment (@PathVariable("id") int assignmentId) {
-		String email = "dwisneski@csumb.edu";  // user name (should be instructor's email)
+	public void deleteAssignment (@PathVariable("id") int assignmentId, @AuthenticationPrincipal OAuth2User principal) {
+		String email = principal.getAttribute("email");  // user name (should be instructor's email)
 		// Create assignment entity
 		Optional<Assignment> optA = assignmentRepository.findById(assignmentId);
 		if (optA.isEmpty()) {
