@@ -1,4 +1,4 @@
-package com.cst438.controller;
+package com.cst438.controllers;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;

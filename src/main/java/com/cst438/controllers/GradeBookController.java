@@ -25,6 +25,7 @@ import org.springframework.web.server.ResponseStatusException;
 import com.cst438.domain.Assignment;
 import com.cst438.domain.AssignmentListDTO;
 import com.cst438.domain.AssignmentGrade;
+import com.cst438.domain.AssignmentGradeListDTO;
 import com.cst438.domain.AssignmentGradeRepository;
 import com.cst438.domain.AssignmentRepository;
 import com.cst438.domain.Course;
@@ -53,9 +54,12 @@ public class GradeBookController {
 	
 	// get assignments for an instructor that need grading
 	@GetMapping("/gradebook")
-	public AssignmentListDTO getAssignmentsNeedGrading() {
+	public AssignmentListDTO getAssignmentsNeedGrading(@AuthenticationPrincipal OAuth2User principal) {
+		String email = principal.getAttribute("email"); // user name (should be instructor's email)
 		
-		String email = "dwisneski@csumb.edu";  // user name (should be instructor's email) 
+		if (!isInstructor(email)) {
+			throw new ResponseStatusException( HttpStatus.FORBIDDEN, "Only instructors are authorized to view");
+		}
 		
 		List<Assignment> assignments = assignmentRepository.findNeedGradingByEmail(email);
 		AssignmentListDTO result = new AssignmentListDTO();
@@ -186,6 +190,24 @@ public class GradeBookController {
 		
 		return assignmentDTORes;
 	}
+	
+	// @author Ericka Koyama
+	@GetMapping("/assignment-grade")
+	@Transactional
+	public AssignmentGradeListDTO getAssignmentGrades (@AuthenticationPrincipal OAuth2User principal) {
+		String email = principal.getAttribute("email"); // user name (should be instructor's email)
+		
+		List<AssignmentGrade> ags = assignmentGradeRepository.findAllByStudentEmail(email);
+		
+		AssignmentGradeListDTO result = new AssignmentGradeListDTO();
+		
+		for (AssignmentGrade ag : ags) {
+			AssignmentGradeListDTO.AssignmentGradeDTO agDTO = new AssignmentGradeListDTO.AssignmentGradeDTO(ag);
+			result.assignmentGrades.add(agDTO);
+		}
+		
+		return result;
+	}
 
 	// @author Ericka Koyama
 	@PostMapping("/assignment")
@@ -303,6 +325,15 @@ public class GradeBookController {
 		assignmentRepository.delete(a);
 	}
 	
+	// @author Ericka Koyama
+	@GetMapping("/user/perms")
+	@Transactional
+	public String getIsInstructor(@AuthenticationPrincipal OAuth2User principal) {
+		// check that this request is from the course instructor
+		String email = principal.getAttribute("email");
+		return isInstructor(email) ? "instructor" : "student";
+	}
+	
 	private Assignment checkAssignment(int assignmentId, String email) {
 		// get assignment 
 		Optional<Assignment> optA = assignmentRepository.findById(assignmentId);
@@ -345,6 +376,18 @@ public class GradeBookController {
 		if (assignment.assignmentName == null && !assignment.assignmentName.trim().isEmpty()) {
 			throw new ResponseStatusException( HttpStatus.BAD_REQUEST, "Missing assignment name field.");
 		}
+	}
+	
+	private Boolean isInstructor(String email) {
+		if (email == null) {
+			throw new ResponseStatusException( HttpStatus.BAD_REQUEST, "Email null.");
+		}
+		// check if email is instructor for any courses
+		List<Course> instructorCourses = courseRepository.findCoursesByInstructor(email);
+		if (instructorCourses == null || instructorCourses.size() == 0) {
+			return false; // this email is not tied to any course instructors
+		}
+		return true; // this email is an instructor for at least one course
 	}
 
 }
