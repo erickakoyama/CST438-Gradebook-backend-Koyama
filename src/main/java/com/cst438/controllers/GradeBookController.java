@@ -75,7 +75,6 @@ public class GradeBookController {
 			@PathVariable("id") int assignmentId,
 			@AuthenticationPrincipal OAuth2User principal
 	) {
-		
 		String email = principal.getAttribute("email"); // user name (should be instructor's email)
 		Assignment assignment = checkAssignment(assignmentId, email);
 		
