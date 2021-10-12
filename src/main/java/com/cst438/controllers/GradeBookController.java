@@ -72,8 +72,8 @@ public class GradeBookController {
 	
 	@GetMapping("/gradebook/{id}")
 	public GradebookDTO getGradebook(
-			@PathVariable("id") int assignmentId,
-			@AuthenticationPrincipal OAuth2User principal
+		@PathVariable("id") int assignmentId,
+		@AuthenticationPrincipal OAuth2User principal
 	) {
 		String email = principal.getAttribute("email"); // user name (should be instructor's email)
 		Assignment assignment = checkAssignment(assignmentId, email);
@@ -150,9 +150,9 @@ public class GradeBookController {
 	@PutMapping("/gradebook/{id}")
 	@Transactional
 	public void updateGradebook (
-			@RequestBody GradebookDTO gradebook,
-			@PathVariable("id") int assignmentId,
-			@AuthenticationPrincipal OAuth2User principal
+		@RequestBody GradebookDTO gradebook,
+		@PathVariable("id") int assignmentId,
+		@AuthenticationPrincipal OAuth2User principal
 	) {
 		
 		String email = principal.getAttribute("email"); // user name (should be instructor's email) 
@@ -215,8 +215,8 @@ public class GradeBookController {
 	@PostMapping("/assignment")
 	@Transactional
 	public AssignmentListDTO.AssignmentDTO createAssignment (
-			@RequestBody AssignmentListDTO.AssignmentDTO assignmentDTO,
-			@AuthenticationPrincipal OAuth2User principal
+		@RequestBody AssignmentListDTO.AssignmentDTO assignmentDTO,
+		@AuthenticationPrincipal OAuth2User principal
 	) {
 		// check that this request is from the course instructor
 		String email = principal.getAttribute("email"); // user name (should be instructor's email) 
@@ -272,9 +272,9 @@ public class GradeBookController {
 	@PatchMapping("/assignment/{id}")
 	@Transactional
 	public AssignmentListDTO.AssignmentDTO updateAssignment (
-			@RequestBody AssignmentListDTO.AssignmentDTO assignmentDTO,
-			@PathVariable("id") int assignmentId,
-			@AuthenticationPrincipal OAuth2User principal
+		@RequestBody AssignmentListDTO.AssignmentDTO assignmentDTO,
+		@PathVariable("id") int assignmentId,
+		@AuthenticationPrincipal OAuth2User principal
 	) {
 		String email = principal.getAttribute("email");  // user name (should be instructor's email)
 		// Create assignment entity
