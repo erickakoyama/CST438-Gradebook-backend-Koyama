@@ -55,7 +55,7 @@ public class Cst438GradebookApplication extends WebSecurityConfigurerAdapter  {
 		http.cors();
  		http.csrf(c -> c.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse()));
  		// permit requests to /course without authentication. All other URLS are authenticated
- 		http.authorizeRequests().mvcMatchers(HttpMethod.PUT, "/course").permitAll();
+ 		http.authorizeRequests().mvcMatchers(HttpMethod.PUT, "/enrollment").permitAll();
  		http.antMatcher("/**").authorizeRequests( a -> a.antMatchers("/", "/home", "/login", "/webjars/**").permitAll()
  		.anyRequest().authenticated())
  		.exceptionHandling(e -> e.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
