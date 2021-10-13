@@ -8,6 +8,8 @@ import java.text.SimpleDateFormat;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -23,6 +25,7 @@ import org.springframework.web.server.ResponseStatusException;
 import com.cst438.domain.Assignment;
 import com.cst438.domain.AssignmentListDTO;
 import com.cst438.domain.AssignmentGrade;
+import com.cst438.domain.AssignmentGradeListDTO;
 import com.cst438.domain.AssignmentGradeRepository;
 import com.cst438.domain.AssignmentRepository;
 import com.cst438.domain.Course;
@@ -34,7 +37,7 @@ import com.cst438.services.RegistrationService;
 
 
 @RestController
-@CrossOrigin(origins = "https://cst438grade-fe-koyama.herokuapp.com")
+@CrossOrigin(origins = "http://localhost:3000")
 public class GradeBookController {
 	
 	@Autowired
@@ -51,9 +54,12 @@ public class GradeBookController {
 	
 	// get assignments for an instructor that need grading
 	@GetMapping("/gradebook")
-	public AssignmentListDTO getAssignmentsNeedGrading() {
+	public AssignmentListDTO getAssignmentsNeedGrading(@AuthenticationPrincipal OAuth2User principal) {
+		String email = principal.getAttribute("email"); // user name (should be instructor's email)
 		
-		String email = "dwisneski@csumb.edu";  // user name (should be instructor's email) 
+		if (!isInstructor(email)) {
+			throw new ResponseStatusException( HttpStatus.FORBIDDEN, "Only instructors are authorized to view");
+		}
 		
 		List<Assignment> assignments = assignmentRepository.findNeedGradingByEmail(email);
 		AssignmentListDTO result = new AssignmentListDTO();
@@ -65,9 +71,11 @@ public class GradeBookController {
 	}
 	
 	@GetMapping("/gradebook/{id}")
-	public GradebookDTO getGradebook(@PathVariable("id") int assignmentId  ) {
-		
-		String email = "dwisneski@csumb.edu";  // user name (should be instructor's email) 
+	public GradebookDTO getGradebook(
+		@PathVariable("id") int assignmentId,
+		@AuthenticationPrincipal OAuth2User principal
+	) {
+		String email = principal.getAttribute("email"); // user name (should be instructor's email)
 		Assignment assignment = checkAssignment(assignmentId, email);
 		
 		// get the enrollment for the course
@@ -141,9 +149,13 @@ public class GradeBookController {
 	
 	@PutMapping("/gradebook/{id}")
 	@Transactional
-	public void updateGradebook (@RequestBody GradebookDTO gradebook, @PathVariable("id") int assignmentId ) {
+	public void updateGradebook (
+		@RequestBody GradebookDTO gradebook,
+		@PathVariable("id") int assignmentId,
+		@AuthenticationPrincipal OAuth2User principal
+	) {
 		
-		String email = "dwisneski@csumb.edu";  // user name (should be instructor's email) 
+		String email = principal.getAttribute("email"); // user name (should be instructor's email) 
 		checkAssignment(assignmentId, email);  // check that user name matches instructor email of the course.
 		
 		// for each grade in gradebook, update the assignment grade in database 
@@ -180,13 +192,34 @@ public class GradeBookController {
 		
 		return assignmentDTORes;
 	}
+	
+	// @author Ericka Koyama
+	@GetMapping("/assignment-grade")
+	@Transactional
+	public AssignmentGradeListDTO getAssignmentGrades (@AuthenticationPrincipal OAuth2User principal) {
+		String email = principal.getAttribute("email"); // user name (should be instructor's email)
+		
+		List<AssignmentGrade> ags = assignmentGradeRepository.findAllByStudentEmail(email);
+		
+		AssignmentGradeListDTO result = new AssignmentGradeListDTO();
+		
+		for (AssignmentGrade ag : ags) {
+			AssignmentGradeListDTO.AssignmentGradeDTO agDTO = new AssignmentGradeListDTO.AssignmentGradeDTO(ag);
+			result.assignmentGrades.add(agDTO);
+		}
+		
+		return result;
+	}
 
 	// @author Ericka Koyama
 	@PostMapping("/assignment")
 	@Transactional
-	public AssignmentListDTO.AssignmentDTO createAssignment (@RequestBody AssignmentListDTO.AssignmentDTO assignmentDTO) {
-		// check that this request is from the course instructor 
-		String email = "dwisneski@csumb.edu";  // user name (should be instructor's email)
+	public AssignmentListDTO.AssignmentDTO createAssignment (
+		@RequestBody AssignmentListDTO.AssignmentDTO assignmentDTO,
+		@AuthenticationPrincipal OAuth2User principal
+	) {
+		// check that this request is from the course instructor
+		String email = principal.getAttribute("email"); // user name (should be instructor's email) 
 		checkNewAssignmentFields(assignmentDTO);  // check that assignment has all of the required fields
 		// check that instructor matches course
 		checkInstructorCoursePerms(assignmentDTO.courseId, email);
@@ -239,10 +272,11 @@ public class GradeBookController {
 	@PatchMapping("/assignment/{id}")
 	@Transactional
 	public AssignmentListDTO.AssignmentDTO updateAssignment (
-			@RequestBody AssignmentListDTO.AssignmentDTO assignmentDTO,
-			@PathVariable("id") int assignmentId
+		@RequestBody AssignmentListDTO.AssignmentDTO assignmentDTO,
+		@PathVariable("id") int assignmentId,
+		@AuthenticationPrincipal OAuth2User principal
 	) {
-		String email = "dwisneski@csumb.edu";  // user name (should be instructor's email)
+		String email = principal.getAttribute("email");  // user name (should be instructor's email)
 		// Create assignment entity
 		Optional<Assignment> optA = assignmentRepository.findById(assignmentId);
 		if (optA.isEmpty()) {
@@ -272,8 +306,8 @@ public class GradeBookController {
 	// @author Ericka Koyama
 	@DeleteMapping("/assignment/{id}")
 	@Transactional
-	public void deleteAssignment (@PathVariable("id") int assignmentId) {
-		String email = "dwisneski@csumb.edu";  // user name (should be instructor's email)
+	public void deleteAssignment (@PathVariable("id") int assignmentId, @AuthenticationPrincipal OAuth2User principal) {
+		String email = principal.getAttribute("email");  // user name (should be instructor's email)
 		// Create assignment entity
 		Optional<Assignment> optA = assignmentRepository.findById(assignmentId);
 		if (optA.isEmpty()) {
@@ -292,6 +326,15 @@ public class GradeBookController {
 		}
 		
 		assignmentRepository.delete(a);
+	}
+	
+	// @author Ericka Koyama
+	@GetMapping("/user/perms")
+	@Transactional
+	public String getIsInstructor(@AuthenticationPrincipal OAuth2User principal) {
+		// check that this request is from the course instructor
+		String email = principal.getAttribute("email");
+		return isInstructor(email) ? "instructor" : "student";
 	}
 	
 	private Assignment checkAssignment(int assignmentId, String email) {
@@ -336,6 +379,18 @@ public class GradeBookController {
 		if (assignment.assignmentName == null && !assignment.assignmentName.trim().isEmpty()) {
 			throw new ResponseStatusException( HttpStatus.BAD_REQUEST, "Missing assignment name field.");
 		}
+	}
+	
+	private Boolean isInstructor(String email) {
+		if (email == null) {
+			throw new ResponseStatusException( HttpStatus.BAD_REQUEST, "Email null.");
+		}
+		// check if email is instructor for any courses
+		List<Course> instructorCourses = courseRepository.findCoursesByInstructor(email);
+		if (instructorCourses == null || instructorCourses.size() == 0) {
+			return false; // this email is not tied to any course instructors
+		}
+		return true; // this email is an instructor for at least one course
 	}
 
 }
